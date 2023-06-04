@@ -1,0 +1,7 @@
+.idea/*
+.ipynb_checkpoints/*
+config/enlighten_v4_config.json
+backup
+data
+notebooks
+playground

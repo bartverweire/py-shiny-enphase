@@ -1,0 +1,14 @@
+{
+    "name": "BV Demo",
+    "system_id": "<your system id>",
+    "code": "<client code>",
+    "api_url": "https://api.enphaseenergy.com/",
+    "app_api_key": "<your api key>",
+    "app_client_id": "<your client id>",
+    "app_client_secret": "<your client secret>",
+    "db_user": "<db_user for postgresql database>",
+    "db_pwd": "<password for postgresql database>",
+    "db_name": "<name of the postgresql database>",
+    "host_name": "<hostname of the postgresql database, e.g. localhost>",
+    "port": <db port, default 5432>
+}

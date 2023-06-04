@@ -1,0 +1,10 @@
+ipywidgets<7.7.4
+shiny
+shinywidgets
+pandas
+requests
+sqlalchemy
+psycopg2
+qgrid
+plotly
+git+https://github.com/bartverweire/py-shinycomponents.git#egg=shinycomponents
