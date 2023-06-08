@@ -7,29 +7,26 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
 from datetime import date, datetime, timedelta
+from .templates import build_sidebar
 
 import constants as co
 
 
 @module.ui
 def stats_ui():
-    return ui.TagList(
-        sca.dashboardSidebar(
-            content=ui.tags.nav(
-                ui.tags.ul(
-                    ui.tags.li(
-                        ui.input_select("in_granularity", "Granularity", choices=["Month", "Year"], selected="Month", width="90%"),
-                    ),
-                    data_lte_toggle="treeview",
-                    data_accordion="false",
-                    role="menu",
-                    class_="nav nav-pills nav-sidebar flex-column"
-                ),
-                class_="mt-2"
-            )
-        ),
-        output_widget("out_stats"),
+    _sidebar = ui.TagList(
+        ui.input_select("in_granularity", "Granularity", choices=["Month", "Year"], selected="Month", width="90%")
     )
+
+    _content = ui.TagList(
+        output_widget("out_stats")
+    )
+
+    return build_sidebar(
+        _sidebar,
+        _content
+    )
+
 
 @module.server
 def stats_server(input, output, session, data):

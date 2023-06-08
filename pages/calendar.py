@@ -9,40 +9,29 @@ from datetime import date, datetime, timedelta
 from modules.input_multidate import *
 
 import constants as co
+from .templates import build_sidebar
 
 
 @module.ui
 def calendar_ui():
-    return ui.TagList(
-        sca.dashboardSidebar(
-            content=ui.tags.nav(
-                ui.tags.ul(
-                    ui.tags.li(
-                        ui.input_select(
-                            "in_metric",
-                            "Metric",
-                            choices=["Produced","Consumed", "Charged", "Discharged", "Imported","Exported"],
-                            selected="Produced",
-                            multiple=False,
-                            width="90%"
-                        )
-                    ),
-                    ui.tags.li(
-                        input_multidate(
-                            "in_multidate",
-                            "Dates",
-                            format="yyyy-mm-dd",
-                            autoclose=False
-                        )
-                    ),
-                    data_lte_toggle="treeview",
-                    data_accordion="false",
-                    role="menu",
-                    class_="nav nav-pills nav-sidebar flex-column"
-                ),
-                class_="mt-2"
-            )
+    _sidebar = ui.TagList(
+        ui.input_select(
+            "in_metric",
+            "Metric",
+            choices=["Produced","Consumed", "Charged", "Discharged", "Imported","Exported"],
+            selected="Produced",
+            multiple=False,
+            width="90%"
         ),
+        input_multidate(
+            "in_multidate",
+            "Dates",
+            format="yyyy-mm-dd",
+            autoclose=False
+        )
+    )
+
+    _content = ui.TagList(
         output_widget("out_calendar"),
         ui.row(
             ui.column(
@@ -58,6 +47,13 @@ def calendar_ui():
         )
     )
 
+    return build_sidebar(
+        _sidebar,
+        _content
+    )
+
+
+
 @module.server
 def calendar_server(input, output, session, data):
     clicked_day = reactive.Value()
@@ -66,14 +62,14 @@ def calendar_server(input, output, session, data):
     def calendar_data():
         req(not data().empty, input.in_metric())
         df = data()
-        df = df.groupby("Day")[input.in_metric()] \
+        df = df.groupby(["Day", "Month", "Month Name", "Day of Week", "Day of Month"])[input.in_metric()] \
             .sum() \
             .rename("Total") \
             .reset_index()
 
-        month = df["Day"].dt.month.tolist()
-        day_of_month = df["Day"].dt.day.tolist()
-        day_of_week = df["Day"].dt.day_of_week.tolist()
+        month = df["Month"].tolist()
+        day_of_month = df["Day of Month"].tolist()
+        day_of_week = df["Day of Week"].tolist()
         week_of_month = [int((day_of_month[i] - day_of_week[i] +(day_of_week[i]-day_of_month[i])%7)/7+1)for i in range(len(day_of_month))]
         min_month = min(month)
         x = [(month[i] - min_month) * 7 + day_of_week[i] for i in range(len(day_of_month))]
@@ -107,7 +103,7 @@ def calendar_server(input, output, session, data):
 
         df = calendar_data()
 
-        month_names = df["Day"].dt.month_name().drop_duplicates().tolist()
+        month_names = df["Month Name"].drop_duplicates().tolist()
 
         fig = go.Figure()
         fig.add_trace(
@@ -115,10 +111,10 @@ def calendar_server(input, output, session, data):
                 x=df["x"],
                 y=df["y"],
                 z=df["Total"],
-                customdata=df["Day"],
+                customdata=pd.to_datetime(df["Day"]),
                 xgap=3,
                 ygap=3,
-                text=df["Day"].dt.day,
+                text=df["Day of Month"],
                 colorscale="YlGn",
                 hovertemplate="Day: %{customdata|%Y-%B-%d}<br>" + input.in_metric() + ": %{z:.d}",
                 hoverongaps=False,
@@ -310,4 +306,4 @@ def calendar_server(input, output, session, data):
 
 
     def click_day(trace, points, selector):
-        clicked_day.set(trace.customdata[points.point_inds])
+        clicked_day.set([t.date() for t in trace.customdata[points.point_inds]])

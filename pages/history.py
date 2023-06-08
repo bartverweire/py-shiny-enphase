@@ -5,38 +5,20 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+from .templates import build_sidebar
 from datetime import date, datetime, timedelta
+import shinycomponents.modalfilter as scmf
 
 import constants as co
 
 
 @module.ui
 def history_ui():
-    return ui.TagList(
-        sca.dashboardSidebar(
-            content=ui.tags.nav(
-                ui.tags.ul(
-                    ui.tags.li(
-                        ui.a(
-                            ui.tags.i(
-                                class_="nav-icon far fa-circle"
-                            ),
-                            ui.p(
-                                "History input"
-                            ),
-                            href="#",
-                            class_="nav-link active"
-                        ),
-                        class_="nav-item"
-                    ),
-                    data_lte_toggle="treeview",
-                    data_accordion="false",
-                    role="menu",
-                    class_="nav nav-pills nav-sidebar flex-column"
-                ),
-                class_="mt-2"
-            )
-        ),
+    _sidebar = ui.TagList(
+        ui.input_select("in_granularity", "Granularity", choices=["15 min", "hour", "day", "month"], selected="day"),
+    )
+
+    _content = ui.TagList(
         ui.row(
             ui.column(
                 1,
@@ -55,8 +37,12 @@ def history_ui():
                 1,
             )
         ),
-        ui.input_select("in_granularity", "Granularity", choices=["15 min", "hour", "day", "month"], selected="day"),
         output_widget("out_history"),
+    )
+
+    return build_sidebar(
+        _sidebar,
+        _content
     )
 
 @module.server
@@ -112,8 +98,9 @@ def history_server(input, output, session, data):
     def out_history():
         req(not data_summary().empty, time_column())
 
+        df = data_summary()
         fig = px.bar(
-            data_summary(),
+            df,
             x=time_column(),
             y=["Produced","Consumed","Imported","Exported"],
             color_discrete_map=co.colors,

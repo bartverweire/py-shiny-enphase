@@ -1,0 +1,42 @@
+:root {
+    --navbar-height: 56px
+}
+
+.sidebar {
+    min-height: calc(100vh - var(--navbar-height));
+    margin-left: calc(var(--bs-gutter-x) * -1);
+    margin-top: calc(var(--bs-gutter-y) * -1);
+}
+
+
+.page_content {
+    max-height: calc(100vh - var(--navbar-height) - 40px);
+    overflow-y: auto;
+}
+
+
+.row .form-group {
+    margin-bottom: 0.5rem !important;
+    margin-top: 0.5rem !important;
+}
+
+nav .row .form-group {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+body > nav {
+    padding-left: var(--bs-gutter-x, .75rem);
+}
+
+body > div.container-fluid > div.tab-content {
+    margin-top: calc(var(--navbar-height));
+}
+
+.wide_form_container .shiny-input-container {
+    width: 100% !important;
+}
+
+.action-button {
+    text-decoration: none !important;
+}

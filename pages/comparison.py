@@ -8,37 +8,30 @@ from plotly.subplots import make_subplots
 
 from datetime import date, datetime, timedelta
 
-import constants as co
-
+from .templates import build_sidebar
 
 @module.ui
 def comp_ui():
-    return ui.TagList(
-        sca.dashboardSidebar(
-            content=ui.tags.nav(
-                ui.tags.ul(
-                    ui.tags.li(
-                        ui.input_date(
-                            "in_date", "Date",
-                            min=date.today() - timedelta(days=90),
-                            max=date.today(),
-                            autoclose=False,
-                            width="90%"
-                        ),
-                        class_="nav-item"
-                    ),
-                    data_lte_toggle="treeview",
-                    data_accordion="false",
-                    role="menu",
-                    class_="nav nav-pills nav-sidebar flex-column"
-                ),
-                class_="mt-2"
-            )
+    _sidebar = ui.TagList(
+        ui.input_date(
+            "in_date", "Date",
+            min=date.today() - timedelta(days=90),
+            max=date.today(),
+            autoclose=False,
+            width="90%"
         ),
-
         ui.input_select("in_granularity", "Granularity", choices=["15 min", "hour", "day", "month"], selected="day"),
+    )
+
+    _content = ui.TagList(
         output_widget("out_comparison"),
     )
+
+    return build_sidebar(
+        _sidebar,
+        _content
+    )
+
 
 @module.server
 def comp_server(input, output, session, data):
