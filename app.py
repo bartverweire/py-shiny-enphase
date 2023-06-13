@@ -22,9 +22,9 @@ pio.templates.default = "plotly_white"
 
 app_ui = ui.page_navbar(
     ui.nav(
-        "Today",
-        pages.today.today_ui("today"),
-        value="id_today"
+        "Calendar",
+        pages.calendar.calendar_ui("calendar"),
+        value="id_calendar"
     ),
     ui.nav(
         "History",
@@ -37,11 +37,6 @@ app_ui = ui.page_navbar(
         value="id_comparison"
     ),
     ui.nav(
-        "Calendar",
-        pages.calendar.calendar_ui("calendar"),
-        value="id_calendar"
-    ),
-    ui.nav(
         "Stats",
         pages.stats.stats_ui("stats"),
         value="id_stats"
@@ -51,7 +46,7 @@ app_ui = ui.page_navbar(
     inverse=True,
     position="fixed-top",
     id="app_navbar",
-    selected="id_today",
+    selected="id_history",
     header=ui.tags.head(
         ui.tags.link(rel="stylesheet",
             type = "text/css",
@@ -64,7 +59,7 @@ app_ui = ui.page_navbar(
         ),
     ),
     footer=ui.TagList(
-        # sca.use_adminlte_components(),
+        sca.use_adminlte_components(),
         scb.busybar(color="#FF0000", height=4, type="auto"),
     )
 )
@@ -135,14 +130,17 @@ def server(input, output, session):
         df_export = pd.read_sql("select * from export", db_con()).rename(columns=co.column_mapping["export"])
         df_export["Exported"] = -df_export["Exported"]
         df_consumption["Consumed"] = - df_consumption["Consumed"]
+        df_battery["Charged"] = -df_battery["Charged"]
 
         df_all = df_import \
             .merge(df_export, how="left", on=["System Id", "Time"]) \
             .merge(df_production, how="left", on=["System Id", "Time"]) \
-            .merge(df_consumption, how="left", on=["System Id", "Time"])
+            .merge(df_consumption, how="left", on=["System Id", "Time"]) \
+            .merge(df_battery, how="left", on=["System Id", "Time"])
 
         print(df_all.info())
 
+        # Plotly doesn't accept time, so we convert all times to today's datetime
         df_all["Time of Day"] = df_all["Time"].apply(lambda x: datetime.combine(date.today(), x.time()))
         df_all["Hour"] = df_all["Time"].dt.floor("H")
         df_all["Day"] = df_all["Time"].dt.date
@@ -181,7 +179,6 @@ def server(input, output, session):
     pages.comparison.comp_server("comparison", enriched_data)
     pages.calendar.calendar_server("calendar", enriched_data)
     pages.stats.stats_server("stats", enriched_data)
-    pages.today.today_server("today", enriched_data)
 
 app = App(app_ui, server, static_assets=Path.joinpath(Path(__file__).parent, "assets"))
 

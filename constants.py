@@ -45,9 +45,5 @@ colors = {
     "Charged (Pct)": "lime"
 }
 
-def make_lighter(base_color, pct):
-    rgb = matplotlib.colors.to_rgb(base_color)
 
-    new_rgb = [v + (1.0 - v) * pct / 100 for v in rgb]
-
-    return matplotlib.colors
+month_names = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]

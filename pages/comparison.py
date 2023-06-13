@@ -8,6 +8,7 @@ from plotly.subplots import make_subplots
 
 from datetime import date, datetime, timedelta
 
+from modules.calendar_plot import *
 from .templates import build_sidebar
 
 @module.ui
@@ -24,6 +25,7 @@ def comp_ui():
     )
 
     _content = ui.TagList(
+        calendar_plot_ui("out_calendar"),
         output_widget("out_comparison"),
     )
 
@@ -36,6 +38,33 @@ def comp_ui():
 @module.server
 def comp_server(input, output, session, data):
     selected_dates = reactive.Value([])
+    calendar_data = reactive.Value(pd.DataFrame())
+    metric = reactive.Value("Produced")
+
+    flt_selected_days = calendar_plot_server("out_calendar", calendar_data, metric, init_selection=date.today(), multiple=True)
+
+    @reactive.Effect
+    def update_calendar_data():
+        req(not data().empty)
+        df = data()
+        df = df.groupby(["Day", "Month", "Month Name", "Day of Week", "Day of Month"])[metric()] \
+            .sum() \
+            .rename("Total") \
+            .reset_index()
+
+        month = df["Month"].tolist()
+        day_of_month = df["Day of Month"].tolist()
+        day_of_week = df["Day of Week"].tolist()
+        week_of_month = [int((day_of_month[i] - day_of_week[i] +(day_of_week[i]-day_of_month[i])%7)/7+1)for i in range(len(day_of_month))]
+        min_month = min(month)
+        x = [(month[i] - min_month) * 7 + day_of_week[i] for i in range(len(day_of_month))]
+        y = week_of_month
+
+        df["x"] = x
+        df["y"] = y
+
+        calendar_data.set(df)
+
 
     @reactive.Effect
     def add_date():
@@ -57,7 +86,7 @@ def comp_server(input, output, session, data):
     def selected_data():
         df = data()
 
-        df = df[df["Day"].isin(selected_dates())]
+        df = df[df["Day"].isin(flt_selected_days())]
 
         return df
 

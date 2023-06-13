@@ -11,5 +11,5 @@ def build_sidebar(sidebar_ui, content_ui):
             *content_ui,
             width=10,
             class_="page_content my-3"
-        )
+        ),
     )

@@ -56,15 +56,16 @@ def stats_server(input, output, session, data):
         req(not data_stats().empty)
 
         df = data_stats()
-        monhts = df["Month"].drop_duplicates().sort_values().tolist()
+        months = df["Month"].drop_duplicates().sort_values().tolist()
+        month_names = [co.month_names[i - 1] for i in months]
 
-        rows = len(monhts) // 2 + 1
-        cols = max(1, len(monhts) % 2 + 1)
+        rows = (len(months) - 1)// 2 + 1
+        cols = max(1, (len(months) + 1) % 2 + 1)
 
         fig = make_subplots(rows, cols,
-                            subplot_titles=monhts)
+                            subplot_titles=month_names)
 
-        for idx, month in enumerate(monhts):
+        for idx, month in enumerate(months):
             df_m = df[df["Month"] == month]
 
             traces = {

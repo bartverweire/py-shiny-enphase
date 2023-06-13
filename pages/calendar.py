@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 
 from datetime import date, datetime, timedelta
 from modules.input_multidate import *
+from modules.calendar_plot import *
 
 import constants as co
 from .templates import build_sidebar
@@ -15,33 +16,44 @@ from .templates import build_sidebar
 @module.ui
 def calendar_ui():
     _sidebar = ui.TagList(
-        ui.input_select(
-            "in_metric",
-            "Metric",
+        ui.input_radio_buttons(
+            "in_cal_metric",
+            "Calendar Metric",
             choices=["Produced","Consumed", "Charged", "Discharged", "Imported","Exported"],
             selected="Produced",
-            multiple=False,
             width="90%"
         ),
-        input_multidate(
-            "in_multidate",
-            "Dates",
-            format="yyyy-mm-dd",
-            autoclose=False
+        ui.input_checkbox_group(
+            "in_metric",
+            "Display Metrics",
+            choices=["Produced", "Consumed", "Charged", "Discharged", "Imported", "Exported"],
+            selected=["Produced", "Consumed", "Charged", "Discharged", "Imported", "Exported"],
+            width="90%"
         )
     )
 
     _content = ui.TagList(
-        output_widget("out_calendar"),
+        # output_widget("out_calendar"),
+        calendar_plot_ui("out_calendar"),
         ui.row(
             ui.column(
-                2,
-                sca.output_value_box("out_eff_to_max"),
-                sca.output_value_box("out_eff_to_month_max"),
-                sca.output_value_box("out_eff_to_week_max")
+                3,
+                sca.output_value_box("out_eff_to_max", width=8),
+                offset=2
             ),
             ui.column(
-                10,
+                3,
+                sca.output_value_box("out_eff_to_month_max", width=8),
+            ),
+            ui.column(
+                3,
+                sca.output_value_box("out_eff_to_week_max", width=8)
+            ),
+            class_="mt-5"
+        ),
+        ui.row(
+            ui.column(
+                12,
                 output_widget("out_metric"),
             )
         )
@@ -52,17 +64,19 @@ def calendar_ui():
         _content
     )
 
-
-
 @module.server
 def calendar_server(input, output, session, data):
-    clicked_day = reactive.Value()
+    # clicked_day = reactive.Value()
+    calendar_data = reactive.Value(pd.DataFrame())
+    metric = reactive.Value(None)
 
-    @reactive.Calc
-    def calendar_data():
-        req(not data().empty, input.in_metric())
+    flt_selected_days = calendar_plot_server("out_calendar", calendar_data, metric, init_selection=date.today())
+
+    @reactive.Effect
+    def update_calendar_data():
+        req(not data().empty, input.in_cal_metric())
         df = data()
-        df = df.groupby(["Day", "Month", "Month Name", "Day of Week", "Day of Month"])[input.in_metric()] \
+        df = df.groupby(["Day", "Month", "Month Name", "Day of Week", "Day of Month"])[input.in_cal_metric()] \
             .sum() \
             .rename("Total") \
             .reset_index()
@@ -78,103 +92,59 @@ def calendar_server(input, output, session, data):
         df["x"] = x
         df["y"] = y
 
-        return df
+        calendar_data.set(df)
+
+    @reactive.Effect
+    def update_metric():
+        metric.set(input.in_cal_metric())
 
 
     @reactive.Calc
-    def selected_data():
-        req(clicked_day(), not data().empty)
+    def selected_summary_data():
+        req(flt_selected_days(), not data().empty)
 
         df = data()
-        print(clicked_day(), type(clicked_day()))
+        print(flt_selected_days(), type(flt_selected_days()))
         df = df[["Time of Day",
                  "Max Produced (Global)",
                  "Max Produced (Month)",
                  "Max Produced (Week)",
-                 input.in_metric()]][df["Day"].isin(clicked_day())]
+                 input.in_cal_metric()]][df["Day"].isin(flt_selected_days())]
 
         return df
 
 
-    @output
-    @render_widget
-    def out_calendar():
-        req(not calendar_data().empty)
 
-        df = calendar_data()
+    @reactive.Calc
+    def selected_data():
+        req(flt_selected_days(), not data().empty)
 
-        month_names = df["Month Name"].drop_duplicates().tolist()
+        df = data()
+        print(flt_selected_days(), type(flt_selected_days()))
+        selected_metrics = input.in_metric()
 
-        fig = go.Figure()
-        fig.add_trace(
-            go.Heatmap(
-                x=df["x"],
-                y=df["y"],
-                z=df["Total"],
-                customdata=pd.to_datetime(df["Day"]),
-                xgap=3,
-                ygap=3,
-                text=df["Day of Month"],
-                colorscale="YlGn",
-                hovertemplate="Day: %{customdata|%Y-%B-%d}<br>" + input.in_metric() + ": %{z:.d}",
-                hoverongaps=False,
-                texttemplate="%{text}",
-                reversescale=True
-            )
-        )
+        if type(selected_metrics) == str:
+            selected_metrics = [selected_metrics]
+        else:
+            # convert tuple to list
+            selected_metrics = list(selected_metrics)
 
-        fig.add_trace(
-            go.Scatter(
-                x=[i * 7 for i in range(len(month_names))],
-                y=[-1 for i in range(len(month_names))],
-                text=month_names,
-                mode="text"
-            )
-        )
+        if "Produced" in input.in_metric():
+            columns = [
+                "Time of Day",
+                "Max Produced (Global)",
+                "Max Produced (Month)",
+                "Max Produced (Week)"
+            ] + selected_metrics
+        else:
+            columns = [
+                "Time of Day"
+            ] + selected_metrics
 
-        # show month lines
-        line_data_x = [[i * 7 - 0.5, i * 7 - 0.5, None] for i in range(len(month_names))]
-        line_data_y = [[0, 7, None] for i in range(len(month_names))]
-        line_data_x = [item for sublist in line_data_x for item in sublist]
-        line_data_y = [item for sublist in line_data_y for item in sublist]
+        df = df[columns][df["Day"].isin(flt_selected_days())]
 
-        fig.add_trace(
-            go.Scatter(
-                x=line_data_x,
-                y=line_data_y,
-                mode="lines",
-                line=dict(
-                    color="lightgrey",
-                    width=2,
-                ),
-                hoverinfo='skip'
-            )
-        )
+        return df
 
-        fig = go.FigureWidget(fig)
-
-        # Update cosmetics
-        fig.update_yaxes(
-            autorange="reversed",
-            showticklabels=False,
-            showgrid=False,
-            showline=False,
-            visible=False,
-        )
-        fig.update_xaxes(
-            showticklabels=False,
-            showgrid=False,
-            showline=False,
-            visible=False
-        )
-        fig.update_layout(
-            showlegend=False,
-            height=400
-        )
-
-        fig.data[0].on_click(click_day)
-
-        return fig
 
     @output
     @render_widget
@@ -182,104 +152,129 @@ def calendar_server(input, output, session, data):
         req(not selected_data().empty)
 
         df = selected_data().copy()
-        df["Metric"] = input.in_metric()
 
         fig = px.bar(
             df,
             x="Time of Day",
-            y=input.in_metric(),
-            color="Metric",
+            y=list(input.in_metric()),
             color_discrete_map=co.colors,
             height=400)
 
-        fig.add_trace(
-            go.Scatter(x=df["Time of Day"], y=df["Max Produced (Global)"], mode="lines",
-                       line=dict(
-                           color="green",
-                           width=1
-                       ))
-        )
+        if "Produced" in input.in_metric():
 
-        fig.add_trace(
-            go.Scatter(x=df["Time of Day"], y=df["Max Produced (Month)"], mode="lines",
-                       line=dict(
-                           color="orange",
-                           width=1
-                       ))
-        )
+            fig.add_trace(
+                go.Scatter(x=df["Time of Day"], y=df["Max Produced (Global)"], mode="lines",
+                           line=dict(
+                               color="green",
+                               width=1
+                           ))
+            )
 
-        fig.add_trace(
-            go.Scatter(x=df["Time of Day"], y=df["Max Produced (Week)"], mode="lines",
-                       line=dict(
-                           color="red",
-                           width=1
-                       ))
-        )
+            fig.add_trace(
+                go.Scatter(x=df["Time of Day"], y=df["Max Produced (Month)"], mode="lines",
+                           line=dict(
+                               color="orange",
+                               width=1
+                           ))
+            )
+
+            fig.add_trace(
+                go.Scatter(x=df["Time of Day"], y=df["Max Produced (Week)"], mode="lines",
+                           line=dict(
+                               color="red",
+                               width=1
+                           ))
+            )
 
         return go.FigureWidget(fig)
 
     @output
     @sca.render_value_box
     def out_eff_to_max():
-        req(not selected_data().empty)
-        df = selected_data()
+        req(not selected_summary_data().empty)
+        df = selected_summary_data()
 
-        total_selected_day = df["Produced"].sum()
-        max_selected_day = df["Max Produced (Global)"].sum()
-        eff = round(100 * total_selected_day / max_selected_day, 0)
-
-        if eff >= 75:
-            eff_color = "success"
-        elif eff >= 50:
-            eff_color = "primary"
-        elif eff >= 25:
-            eff_color = "warning"
-        else:
-            eff_color = "danger"
-
-        return sca.value_box(
-            value = eff,
-            unit="%",
-            subtitle="Efficiency to max",
-            icon="bi-speedometer2",
-            color=eff_color
-        )
+        return create_value_box(df, "Produced", "Max Produced (Global)", "Efficiency to max", "bi-speedometer2")
+        # total_selected_day = df["Produced"].sum()
+        # max_selected_day = df["Max Produced (Global)"].sum()
+        # eff = round(100 * total_selected_day / max_selected_day, 0)
+        #
+        # if eff >= 75:
+        #     eff_color = "success"
+        # elif eff >= 50:
+        #     eff_color = "primary"
+        # elif eff >= 25:
+        #     eff_color = "warning"
+        # else:
+        #     eff_color = "danger"
+        #
+        # return sca.value_box(
+        #     value = eff,
+        #     unit="%",
+        #     subtitle="Efficiency to max",
+        #     icon="bi-speedometer2",
+        #     color=eff_color
+        # )
 
     @output
     @sca.render_value_box
     def out_eff_to_month_max():
-        req(not selected_data().empty)
-        df = selected_data()
+        req(not selected_summary_data().empty)
+        df = selected_summary_data()
 
-        total_selected_day = df["Produced"].sum()
-        max_selected_day = df["Max Produced (Month)"].sum()
-        eff = round(100 * total_selected_day / max_selected_day, 0)
-
-        if eff >= 75:
-            eff_color = "success"
-        elif eff >= 50:
-            eff_color = "primary"
-        elif eff >= 25:
-            eff_color = "warning"
-        else:
-            eff_color = "danger"
-
-        return sca.value_box(
-            value = eff,
-            unit="%",
-            subtitle="Efficiency to month max",
-            icon="bi-speedometer2",
-            color=eff_color
-        )
+        return create_value_box(df, "Produced", "Max Produced (Month)", "Efficiency to month max", "bi-speedometer2")
+        # total_selected_day = df["Produced"].sum()
+        # max_selected_day = df["Max Produced (Month)"].sum()
+        # eff = round(100 * total_selected_day / max_selected_day, 0)
+        #
+        # if eff >= 75:
+        #     eff_color = "success"
+        # elif eff >= 50:
+        #     eff_color = "primary"
+        # elif eff >= 25:
+        #     eff_color = "warning"
+        # else:
+        #     eff_color = "danger"
+        #
+        # return sca.value_box(
+        #     value = eff,
+        #     unit="%",
+        #     subtitle="Efficiency to month max",
+        #     icon="bi-speedometer2",
+        #     color=eff_color
+        # )
 
     @output
     @sca.render_value_box
     def out_eff_to_week_max():
-        req(not selected_data().empty)
-        df = selected_data()
+        req(not selected_summary_data().empty)
+        df = selected_summary_data()
 
-        total_selected_day = df["Produced"].sum()
-        max_selected_day = df["Max Produced (Week)"].sum()
+        return create_value_box(df, "Produced", "Max Produced (Week)", "Efficiency to week max", "bi-speedometer2")
+        # total_selected_day = df["Produced"].sum()
+        # max_selected_day = df["Max Produced (Week)"].sum()
+        # eff = round(100 * total_selected_day / max_selected_day, 0)
+        #
+        # if eff >= 75:
+        #     eff_color = "success"
+        # elif eff >= 50:
+        #     eff_color = "primary"
+        # elif eff >= 25:
+        #     eff_color = "warning"
+        # else:
+        #     eff_color = "danger"
+        #
+        # return sca.value_box(
+        #     value = eff,
+        #     unit="%",
+        #     subtitle="Efficiency to week max",
+        #     icon="bi-speedometer2",
+        #     color=eff_color
+        # )
+
+    def create_value_box(df, metric, compare_to_metric, title, icon):
+        total_selected_day = df[metric].sum()
+        max_selected_day = df[compare_to_metric].sum()
         eff = round(100 * total_selected_day / max_selected_day, 0)
 
         if eff >= 75:
@@ -292,18 +287,9 @@ def calendar_server(input, output, session, data):
             eff_color = "danger"
 
         return sca.value_box(
-            value = eff,
+            value=eff,
             unit="%",
-            subtitle="Efficiency to week max",
-            icon="bi-speedometer2",
+            subtitle=title,
+            icon=icon,
             color=eff_color
         )
-
-    # @output
-    # @render.text
-    # def out_debug_click():
-    #     return clicked_day()
-
-
-    def click_day(trace, points, selector):
-        clicked_day.set([t.date() for t in trace.customdata[points.point_inds]])

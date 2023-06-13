@@ -6,6 +6,7 @@
     min-height: calc(100vh - var(--navbar-height));
     margin-left: calc(var(--bs-gutter-x) * -1);
     margin-top: calc(var(--bs-gutter-y) * -1);
+    padding-left: calc(var(--bs-gutter-x) * 1);
 }
 
 
@@ -39,4 +40,9 @@ body > div.container-fluid > div.tab-content {
 
 .action-button {
     text-decoration: none !important;
+}
+
+# change plotly cursor
+.js-plotly-plot .plotly .cursor-ew-resize {
+    cursor: crosshair;
 }

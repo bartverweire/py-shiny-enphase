@@ -2,6 +2,7 @@ from shiny import *
 from shinywidgets import *
 
 import datetime
+import pandas as pd
 import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 import numpy as np
@@ -11,159 +12,146 @@ def calendar_plot_ui():
     return output_widget("out_calendar")
 
 @module.server
-def calendar_plot_server(input, output, session, data):
-    # MIT LICENSE
+def calendar_plot_server(input, output, session, data, metric, init_selection=None, multiple=False):
+    clicked_day = reactive.Value([] if init_selection is None else [init_selection])
 
-    def display_year(
-        z,
-        year: int = None,
-        month_lines: bool = True,
-        fig=None,
-        row: int = None
-    ):
+    # @reactive.Calc
+    # def calendar_data():
+    #     req(not data().empty, input.in_metric())
+    #     df = data()
+    #     df = df.groupby(["Day", "Month", "Month Name", "Day of Week", "Day of Month"])[input.in_metric()] \
+    #         .sum() \
+    #         .rename("Total") \
+    #         .reset_index()
+    #
+    #     month = df["Month"].tolist()
+    #     day_of_month = df["Day of Month"].tolist()
+    #     day_of_week = df["Day of Week"].tolist()
+    #     week_of_month = [int((day_of_month[i] - day_of_week[i] +(day_of_week[i]-day_of_month[i])%7)/7+1)for i in range(len(day_of_month))]
+    #     min_month = min(month)
+    #     x = [(month[i] - min_month) * 7 + day_of_week[i] for i in range(len(day_of_month))]
+    #     y = week_of_month
+    #
+    #     df["x"] = x
+    #     df["y"] = y
+    #
+    #     return df
 
-        if year is None:
-            year = datetime.datetime.now().year
 
-        d1 = datetime.date(year, 1, 1)
-        d2 = datetime.date(year, 12, 31)
+    @output
+    @render_widget
+    def out_calendar():
+        req(not data().empty)
 
-        number_of_days = (d2 - d1).days + 1
+        df = data()
 
-        data = np.ones(number_of_days) * np.nan
-        data[:len(z)] = z
+        month_names = df["Month Name"].drop_duplicates().tolist()
 
-        d1 = datetime.date(year, 1, 1)
-        d2 = datetime.date(year, 12, 31)
-
-        delta = d2 - d1
-
-        month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-        month_days = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-        if number_of_days == 366:  # leap year
-            month_days[1] = 29
-        month_positions = (np.cumsum(month_days) - 15) / 7
-
-        dates_in_year = [d1 + datetime.timedelta(i) for i in
-                         range(delta.days + 1)]  # list with datetimes for each day a year
-        weekdays_in_year = [i.weekday() for i in
-                            dates_in_year]  # gives [0,1,2,3,4,5,6,0,1,2,3,4,5,6,…] (ticktext in xaxis dict translates this to weekdays
-
-        weeknumber_of_dates = []
-        for i in dates_in_year:
-            inferred_week_no = int(i.strftime("%V"))
-            if inferred_week_no >= 52 and i.month == 1:
-                weeknumber_of_dates.append(0)
-            elif inferred_week_no == 1 and i.month == 12:
-                weeknumber_of_dates.append(53)
-            else:
-                weeknumber_of_dates.append(inferred_week_no)
-
-        text = [str(i) for i in
-                dates_in_year]  # gives something like list of strings like ‘2018-01-25’ for each date. Used in data trace to make good hovertext.
-        # 4cc417 green #347c17 dark green
-        colorscale = [[False, '#eeeeee'], [True, '#76cf63']]
-
-        # handle end of year
-
-        data = [
+        fig = go.Figure()
+        fig.add_trace(
             go.Heatmap(
-                x=weeknumber_of_dates,
-                y=weekdays_in_year,
-                z=data,
-                text=text,
-                hoverinfo='text',
-                xgap=3,  # this
-                ygap=3,  # and this is used to make the grid-like apperance
-                showscale=False,
-                colorscale=colorscale
+                x=df["x"],
+                y=df["y"],
+                z=df["Total"],
+                customdata=pd.to_datetime(df["Day"]),
+                xgap=3,
+                ygap=3,
+                text=df["Day of Month"],
+                colorscale="YlGn",
+                hovertemplate="Day: %{customdata|%Y-%B-%d}<br>" + metric() + ": %{z:.d}",
+                hoverongaps=False,
+                texttemplate="%{text}",
+                reversescale=True
             )
-        ]
-
-        if month_lines:
-            kwargs = dict(
-                mode='lines',
-                line=dict(
-                    color='#9e9e9e',
-                    width=1,
-                ),
-                hoverinfo='skip',
-            )
-
-            for date, dow, wkn in zip(
-                    dates_in_year, weekdays_in_year, weeknumber_of_dates
-            ):
-                if date.day == 1:
-                    data += [
-                        go.Scatter(
-                            x=[wkn - .5, wkn - .5],
-                            y=[dow - .5, 6.5],
-                            **kwargs,
-                        )
-                    ]
-                    if dow:
-                        data += [
-                            go.Scatter(
-                                x=[wkn - .5, wkn + .5],
-                                y=[dow - .5, dow - .5],
-                                **kwargs,
-                            ),
-                            go.Scatter(
-                                x=[wkn + .5, wkn + .5],
-                                y=[dow - .5, -.5],
-                                **kwargs,
-                            )
-                        ]
-
-        layout = go.Layout(
-            title='activity chart',
-            height=250,
-            yaxis=dict(
-                showline=False, showgrid=False, zeroline=False,
-                tickmode='array',
-                ticktext=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-                tickvals=[0, 1, 2, 3, 4, 5, 6],
-                autorange="reversed",
-            ),
-            xaxis=dict(
-                showline=False, showgrid=False, zeroline=False,
-                tickmode='array',
-                ticktext=month_names,
-                tickvals=month_positions,
-            ),
-            font={'size': 10, 'color': '#9e9e9e'},
-            plot_bgcolor=('#fff'),
-            margin=dict(t=40),
-            showlegend=False,
         )
 
-        if fig is None:
-            fig = go.Figure(data=data, layout=layout)
+        fig.add_trace(
+            go.Scatter(
+                x=[i * 7 for i in range(len(month_names))],
+                y=[-1 for i in range(len(month_names))],
+                text=month_names,
+                mode="text"
+            )
+        )
+
+        # show month lines
+        line_data_x = [[i * 7 - 0.5, i * 7 - 0.5, None] for i in range(len(month_names))]
+        line_data_y = [[0, 7, None] for i in range(len(month_names))]
+        line_data_x = [item for sublist in line_data_x for item in sublist]
+        line_data_y = [item for sublist in line_data_y for item in sublist]
+
+        fig.add_trace(
+            go.Scatter(
+                x=line_data_x,
+                y=line_data_y,
+                mode="lines",
+                line=dict(
+                    color="lightgrey",
+                    width=2,
+                ),
+                hoverinfo='skip'
+            )
+        )
+
+        if clicked_day():
+            # show selected days
+            df_sel = df[df["Day"].isin(clicked_day())]
+            sel_x = []
+            sel_y = []
+            for i in df_sel.index:
+                x = df_sel["x"].loc[i]
+                y = df_sel["y"].loc[i]
+
+                sel_x.extend([x-0.5, x-0.5, x+0.5, x+0.5, x-0.5, None])
+                sel_y.extend([y-0.5, y+0.5, y+0.5, y-0.5, y-0.5, None])
+
+            fig.add_trace(
+                go.Scatter(
+                    x=sel_x,
+                    y=sel_y,
+                    mode="lines",
+                    line=dict(
+                        color="green",
+                        width=2
+                    )
+                )
+            )
+
+        fig = go.FigureWidget(fig)
+
+        # Update cosmetics
+        fig.update_yaxes(
+            autorange="reversed",
+            showticklabels=False,
+            showgrid=False,
+            showline=False,
+            visible=False,
+        )
+        fig.update_xaxes(
+            showticklabels=False,
+            showgrid=False,
+            showline=False,
+            visible=False
+        )
+        fig.update_layout(
+            showlegend=False,
+            height=200,
+            margin=dict(t=10,b=0)
+        )
+
+        fig.data[0].on_click(click_day)
+
+        return fig
+
+    def click_day(trace, points, selector):
+        with reactive.isolate():
+            current_selection = clicked_day()
+
+        if multiple:
+            # remove already selected
+            clicked_day.set([t.date() for t in trace.customdata[points.point_inds] if not t.date() in current_selection] +
+                            [t for t in current_selection if t not in [t.date() for t in trace.customdata[points.point_inds]]])
         else:
-            fig.add_traces(data, rows=[(row + 1)] * len(data), cols=[1] * len(data))
-            fig.update_layout(layout)
-            fig.update_xaxes(layout['xaxis'])
-            fig.update_yaxes(layout['yaxis'])
+            clicked_day.set([t.date() for t in trace.customdata[points.point_inds]])
 
-        return fig
-
-    def display_years(z, years):
-
-        day_counter = 0
-
-        fig = make_subplots(rows=len(years), cols=1, subplot_titles=years)
-        for i, year in enumerate(years):
-            d1 = datetime.date(year, 1, 1)
-            d2 = datetime.date(year, 12, 31)
-
-            number_of_days = (d2 - d1).days + 1
-            data = z[day_counter: day_counter + number_of_days]
-
-            display_year(data, year=year, fig=fig, row=i)
-            fig.update_layout(height=250 * len(years))
-            day_counter += number_of_days
-        return fig
-
-    z = np.random.randint(2, size=(1200,))
-
-    display_years(z, (2020, 2021, 2022))
+    return clicked_day
