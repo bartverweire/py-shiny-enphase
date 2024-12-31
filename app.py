@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, text
 from shiny import *
 import shinycomponents as sc
 # import shinycomponents.adminlte as sca
+import oracledb
 
 import pages
 
@@ -88,13 +89,23 @@ def server(input, output, session):
         config = json.load(config_file)
 
 
-    username = config["db_user"]
-    password = config["db_pwd"]
-    db_name = config["db_name"]
-    host_name = config["host_name"]
-    port = config["port"]
+    username = config["ora_db_user"]
+    password = config["ora_db_pwd"]
+    # db_name = config["db_name"]
+    # host_name = config["host_name"]
+    # port = config["port"]
+    tnsname = config["ora_tns"]
+    ora_lib_dir = config["ora_lib_dir"]
 
-    pcon = create_engine(f"postgresql+psycopg2://{username}:{password}@{host_name}:{port}/{db_name}", echo=True)
+    # pcon = create_engine(f"postgresql+psycopg2://{username}:{password}@{host_name}:{port}/{db_name}", echo=True)
+    oracledb.init_oracle_client(lib_dir=ora_lib_dir)
+    ora_con = create_engine(
+        f'oracle+oracledb://{username}:{password}@',
+        connect_args={
+            "dsn": tnsname
+        },
+        arraysize=1000
+    )
     # api = enlightenAPI_v4(config)
 
     data = reactive.Value(pd.DataFrame())
@@ -131,7 +142,8 @@ def server(input, output, session):
     # load_telemetry(system_id, "export")
     # load_telemetry(system_id, "import")
 
-    db_con = reactive.Value(pcon)
+    # db_con = reactive.Value(pcon)
+    db_con = reactive.Value(ora_con)
 
     @reactive.Effect
     def load_data():
@@ -139,13 +151,13 @@ def server(input, output, session):
 
 
 
-        df_production = pd.read_sql("select * from production_meter", db_con()).rename(
+        df_production = pd.read_sql("select * from enphase_production_meter", db_con()).rename(
             columns=co.column_mapping["production"])
-        df_consumption = pd.read_sql("select * from consumption", db_con()).rename(
+        df_consumption = pd.read_sql("select * from enphase_consumption", db_con()).rename(
             columns=co.column_mapping["consumption"])
-        df_battery = pd.read_sql("select * from battery", db_con()).rename(columns=co.column_mapping["battery"])
-        df_import = pd.read_sql("select * from import", db_con()).rename(columns=co.column_mapping["import"])
-        df_export = pd.read_sql("select * from export", db_con()).rename(columns=co.column_mapping["export"])
+        df_battery = pd.read_sql("select * from enphase_battery", db_con()).rename(columns=co.column_mapping["battery"])
+        df_import = pd.read_sql("select * from enphase_import", db_con()).rename(columns=co.column_mapping["import"])
+        df_export = pd.read_sql("select * from enphase_export", db_con()).rename(columns=co.column_mapping["export"])
         df_export["Exported"] = -df_export["Exported"]
         df_consumption["Consumed"] = - df_consumption["Consumed"]
         df_battery["Charged"] = -df_battery["Charged"]

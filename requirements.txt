@@ -8,5 +8,6 @@ sqlalchemy
 psycopg2
 qgrid
 plotly
+oracledb
 # git+https://github.com/bartverweire/py-shinycomponents.git#egg=shinycomponents
 git+ssh://git@github.com/bartverweire/py-shinycomponents.git#egg=shinycomponents

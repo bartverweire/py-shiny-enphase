@@ -2,6 +2,7 @@ import json
 import requests
 
 import pandas as pd
+import oracledb
 from sqlalchemy import create_engine, text
 
 from enlighten import enlightenAPI_v4
@@ -14,11 +15,23 @@ with open('config/enlighten_v4_config.json') as config_file:
 
 api = enlightenAPI_v4(config)
 
-pw = config["db_pwd"]
-pcon = create_engine(f"postgresql+psycopg2://enl:{pw}@127.0.0.1:5432/enlighten", echo=True)
+username = config["ora_db_user"]
+password = config["ora_db_pwd"]
+tnsname = config["ora_tns"]
+ora_lib_dir = config["ora_lib_dir"]
+
+# pcon = create_engine(f"postgresql+psycopg2://enl:{pw}@127.0.0.1:5432/enlighten", echo=True)
+oracledb.init_oracle_client(lib_dir=ora_lib_dir)
+ora_con = create_engine(
+    f'oracle+oracledb://{username}:{password}@',
+    connect_args={
+        "dsn": tnsname
+    },
+    arraysize=100
+)
 
 def load_telemetry(system_id, type):
-    with pcon.connect() as connection:
+    with ora_con.connect() as connection:
         max_date = connection.execute(
             text(f"select max(end_at) + interval '1 minute' from {type}")).scalar()
 
@@ -38,7 +51,7 @@ def load_telemetry(system_id, type):
             as_type="dataframe"
         )
 
-        df.to_sql(type, pcon, if_exists="append")
+        df.to_sql(type, ora_con, if_exists="append")
 
 system_id = config["system_id"]
 
