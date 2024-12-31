@@ -1,6 +1,6 @@
 from shiny import *
 from shinywidgets import *
-import shinycomponents.adminlte as sca
+# import shinycomponents.adminlte as sca
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -14,8 +14,8 @@ import constants as co
 
 
 @module.ui
-def history_ui():
-    _sidebar = ui.TagList(
+def history_sidebar_ui():
+    return ui.TagList(
         ui.input_radio_buttons(
             "in_granularity", "Granularity",
             choices={
@@ -35,7 +35,10 @@ def history_ui():
         ),
     )
 
-    _content = ui.TagList(
+
+@module.ui
+def history_ui():
+    return ui.TagList(
         ui.h3("Time range selection"),
         ui.p("Select a time range for the history to be displayed"),
         ui.row(
@@ -65,10 +68,6 @@ def history_ui():
         output_widget("out_history_detail")
     )
 
-    return build_sidebar(
-        _sidebar,
-        _content
-    )
 
 @module.server
 def history_server(input, output, session, data):

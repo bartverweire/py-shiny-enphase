@@ -1,6 +1,6 @@
 from shiny import *
 from shinywidgets import *
-import shinycomponents.adminlte as sca
+# import shinycomponents.adminlte as sca
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -10,12 +10,10 @@ from modules.input_multidate import *
 from modules.calendar_plot import *
 
 import constants as co
-from .templates import build_sidebar
-
 
 @module.ui
-def calendar_ui():
-    _sidebar = ui.TagList(
+def calendar_sidebar_ui():
+    return ui.TagList(
         ui.input_radio_buttons(
             "in_cal_metric",
             "Calendar Metric",
@@ -32,22 +30,24 @@ def calendar_ui():
         )
     )
 
-    _content = ui.TagList(
+@module.ui
+def calendar_ui():
+    return ui.TagList(
         # output_widget("out_calendar"),
         calendar_plot_ui("out_calendar"),
         ui.row(
             ui.column(
                 3,
-                sca.output_value_box("out_eff_to_max", width=8),
+                ui.value_box("out_eff_to_max", value=None, width=8),
                 offset=2
             ),
             ui.column(
                 3,
-                sca.output_value_box("out_eff_to_month_max", width=8),
+                ui.value_box("out_eff_to_month_max", value=None, width=8),
             ),
             ui.column(
                 3,
-                sca.output_value_box("out_eff_to_week_max", width=8)
+                ui.value_box("out_eff_to_week_max", value=None, width=8)
             ),
             class_="mt-5"
         ),
@@ -57,11 +57,6 @@ def calendar_ui():
                 output_widget("out_metric"),
             )
         )
-    )
-
-    return build_sidebar(
-        _sidebar,
-        _content
     )
 
 @module.server
@@ -188,8 +183,7 @@ def calendar_server(input, output, session, data):
 
         return go.FigureWidget(fig)
 
-    @output
-    @sca.render_value_box
+    @render.ui
     def out_eff_to_max():
         req(not selected_summary_data().empty)
         df = selected_summary_data()
@@ -216,8 +210,7 @@ def calendar_server(input, output, session, data):
         #     color=eff_color
         # )
 
-    @output
-    @sca.render_value_box
+    @render.ui
     def out_eff_to_month_max():
         req(not selected_summary_data().empty)
         df = selected_summary_data()
@@ -244,8 +237,7 @@ def calendar_server(input, output, session, data):
         #     color=eff_color
         # )
 
-    @output
-    @sca.render_value_box
+    @render.ui
     def out_eff_to_week_max():
         req(not selected_summary_data().empty)
         df = selected_summary_data()

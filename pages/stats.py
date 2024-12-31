@@ -1,6 +1,6 @@
 from shiny import *
 from shinywidgets import *
-import shinycomponents.adminlte as sca
+# import shinycomponents.adminlte as sca
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -13,18 +13,16 @@ import constants as co
 
 
 @module.ui
-def stats_ui():
-    _sidebar = ui.TagList(
+def stats_sidebar_ui():
+    return ui.TagList(
         ui.input_select("in_granularity", "Granularity", choices=["Month", "Year"], selected="Month", width="90%")
     )
 
-    _content = ui.TagList(
-        output_widget("out_stats")
-    )
 
-    return build_sidebar(
-        _sidebar,
-        _content
+@module.ui
+def stats_ui():
+    return ui.TagList(
+        output_widget("out_stats")
     )
 
 

@@ -1,6 +1,6 @@
 from shiny import *
 from shinywidgets import *
-import shinycomponents.adminlte as sca
+# import shinycomponents.adminlte as sca
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -11,9 +11,10 @@ from datetime import date, datetime, timedelta
 from modules.calendar_plot import *
 from .templates import build_sidebar
 
+
 @module.ui
-def comp_ui():
-    _sidebar = ui.TagList(
+def comp_sidebar_ui():
+    return ui.TagList(
         ui.input_date(
             "in_date", "Date",
             min=date.today() - timedelta(days=90),
@@ -24,15 +25,14 @@ def comp_ui():
         ui.input_select("in_granularity", "Granularity", choices=["15 min", "hour", "day", "month"], selected="day"),
     )
 
-    _content = ui.TagList(
+
+@module.ui
+def comp_ui():
+    return ui.TagList(
         calendar_plot_ui("out_calendar"),
         output_widget("out_comparison"),
     )
 
-    return build_sidebar(
-        _sidebar,
-        _content
-    )
 
 
 @module.server

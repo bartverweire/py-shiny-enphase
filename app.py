@@ -5,11 +5,11 @@ from sqlalchemy import create_engine, text
 
 from shiny import *
 import shinycomponents as sc
-import shinycomponents.adminlte as sca
+# import shinycomponents.adminlte as sca
 
 import pages
 
-from enlighten import enlightenAPI_v4
+# from enlighten import enlightenAPI_v4
 
 from datetime import datetime, date, timedelta
 import pandas as pd
@@ -21,25 +21,43 @@ import shinycomponents.busyindicator as scb
 pio.templates.default = "plotly_white"
 
 app_ui = ui.page_navbar(
-    ui.nav(
+    ui.nav_panel(
         "Calendar",
         pages.calendar.calendar_ui("calendar"),
         value="id_calendar"
     ),
-    ui.nav(
+    ui.nav_panel(
         "History",
         pages.history.history_ui("history"),
         value="id_history"
     ),
-    ui.nav(
+    ui.nav_panel(
         "Comparison",
         pages.comparison.comp_ui("comparison"),
         value="id_comparison"
     ),
-    ui.nav(
+    ui.nav_panel(
         "Stats",
         pages.stats.stats_ui("stats"),
         value="id_stats"
+    ),
+    sidebar=ui.sidebar(
+        ui.panel_conditional(
+            "input.app_navbar == 'id_calendar'",
+            pages.calendar.calendar_sidebar_ui("calendar")
+        ),
+        ui.panel_conditional(
+            "input.app_navbar == 'id_history'",
+            pages.history.history_sidebar_ui("history")
+        ),
+        ui.panel_conditional(
+            "input.app_navbar == 'id_comparison'",
+            pages.comparison.comp_sidebar_ui("comparison")
+        ),
+        ui.panel_conditional(
+            "input.app_navbar == 'id_stats'",
+            pages.stats.stats_sidebar_ui("stats")
+        )
     ),
     title="Enphase Enlighten",
     bg="var(--bs-dark)",
@@ -59,8 +77,8 @@ app_ui = ui.page_navbar(
         ),
     ),
     footer=ui.TagList(
-        sca.use_adminlte_components(),
-        scb.busybar(color="#FF0000", height=4, type="auto"),
+        # sca.use_adminlte_components(),
+        # scb.busybar(color="#FF0000", height=4, type="auto"),
     )
 )
 
@@ -77,41 +95,41 @@ def server(input, output, session):
     port = config["port"]
 
     pcon = create_engine(f"postgresql+psycopg2://{username}:{password}@{host_name}:{port}/{db_name}", echo=True)
-    api = enlightenAPI_v4(config)
+    # api = enlightenAPI_v4(config)
 
     data = reactive.Value(pd.DataFrame())
 
-    def load_telemetry(system_id, type):
-        with pcon.connect() as connection:
-            max_date = connection.execute(
-                text(f"select max(end_at) + interval '1 minute' from {type}")).scalar()
+    # def load_telemetry(system_id, type):
+    #     with pcon.connect() as connection:
+    #         max_date = connection.execute(
+    #             text(f"select max(end_at) + interval '1 minute' from {type}")).scalar()
+    #
+    #     if max_date is None:
+    #         start_at = datetime.now() - timedelta(days=50)
+    #     else:
+    #         start_at = max_date
+    #
+    #     # do not call any api if the last data is only 2 hours old
+    #     # this is quite conservative, but for testing purposes, we might run out of "call budget"
+    #     if start_at < datetime.now() - timedelta(hours=2):
+    #         df = api.telemetry(
+    #             system_id,
+    #             telemetry_type=type,
+    #             start_at=start_at,
+    #             granularity="week",
+    #             as_type="dataframe"
+    #         )
+    #
+    #         df.to_sql(type, pcon, if_exists="append")
+    #
+    # system_id = config["system_id"]
 
-        if max_date is None:
-            start_at = datetime.now() - timedelta(days=50)
-        else:
-            start_at = max_date
-
-        # do not call any api if the last data is only 2 hours old
-        # this is quite conservative, but for testing purposes, we might run out of "call budget"
-        if start_at < datetime.now() - timedelta(hours=2):
-            df = api.telemetry(
-                system_id,
-                telemetry_type=type,
-                start_at=start_at,
-                granularity="week",
-                as_type="dataframe"
-            )
-
-            df.to_sql(type, pcon, if_exists="append")
-
-    system_id = config["system_id"]
-
-    load_telemetry(system_id, "production_micro")
-    load_telemetry(system_id, "production_meter")
-    load_telemetry(system_id, "battery")
-    load_telemetry(system_id, "consumption")
-    load_telemetry(system_id, "export")
-    load_telemetry(system_id, "import")
+    # load_telemetry(system_id, "production_micro")
+    # load_telemetry(system_id, "production_meter")
+    # load_telemetry(system_id, "battery")
+    # load_telemetry(system_id, "consumption")
+    # load_telemetry(system_id, "export")
+    # load_telemetry(system_id, "import")
 
     db_con = reactive.Value(pcon)
 
